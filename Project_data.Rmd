@@ -1,0 +1,96 @@
+---
+title: "Practical Machine Learning: Peer Assessment"
+output: 
+  html_document:
+    keep_md: true
+---
+Library used :
+
+```{r lib, message=FALSE,warning=FALSE, cache=TRUE}
+library(dplyr);
+library(caret);
+library(lattice);
+library(ggplot2);
+Sys.setlocale("LC_TIME", "C");
+
+```
+Sys.setlocale is used to set the dates in english
+
+## Loading and preprocessing the data
+
+The two files "pml-testing.csv" and "pml-training.csv" are loaded from the links given in the peer assessment page.
+Files are loaded into data frames. 
+In this step, some data are cleaned:
+
+```{r loadfiles, message=FALSE,warning=FALSE, cache=TRUE}
+pmlDataBase<-read.csv2("pml-training.csv", sep=",", header = TRUE, na.strings = c("NA","#DIV/0!",""), dec = ".");
+assignementDataBase<-read.csv2("pml-testing.csv", sep=",", header = TRUE, na.strings = c("NA","#DIV/0!",""), dec = ".");
+
+```
+
+Then, these dataframes are cleaned for analysis. for this, we remove columns that contains many null values, and those that not seems useful for analysis (those that contains time values. With this action, the number of columns go from 160 to 54.
+
+```{r clean, message=FALSE,warning=FALSE, cache=TRUE,echo=FALSE}
+pmlData<-pmlDataBase[,c("user_name","new_window","num_window","roll_belt","pitch_belt","yaw_belt","total_accel_belt","gyros_belt_x","gyros_belt_y","gyros_belt_z","accel_belt_x","accel_belt_y","accel_belt_z","magnet_belt_x","magnet_belt_y","magnet_belt_z","roll_arm","pitch_arm","yaw_arm","total_accel_arm","gyros_arm_x","gyros_arm_y","gyros_arm_z","accel_arm_x","accel_arm_y","accel_arm_z","magnet_arm_x","magnet_arm_y","magnet_arm_z","roll_dumbbell","pitch_dumbbell","yaw_dumbbell","gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z","accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z","magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z","roll_forearm","pitch_forearm","yaw_forearm","gyros_forearm_x","gyros_forearm_y","gyros_forearm_z","accel_forearm_x","accel_forearm_y","accel_forearm_z","magnet_forearm_x","magnet_forearm_y","magnet_forearm_z","classe")];
+
+assignementData<-assignementDataBase[,c("user_name","new_window","num_window","roll_belt","pitch_belt","yaw_belt","total_accel_belt","gyros_belt_x","gyros_belt_y","gyros_belt_z","accel_belt_x","accel_belt_y","accel_belt_z","magnet_belt_x","magnet_belt_y","magnet_belt_z","roll_arm","pitch_arm","yaw_arm","total_accel_arm","gyros_arm_x","gyros_arm_y","gyros_arm_z","accel_arm_x","accel_arm_y","accel_arm_z","magnet_arm_x","magnet_arm_y","magnet_arm_z","roll_dumbbell","pitch_dumbbell","yaw_dumbbell","gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z","accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z","magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z","roll_forearm","pitch_forearm","yaw_forearm","gyros_forearm_x","gyros_forearm_y","gyros_forearm_z","accel_forearm_x","accel_forearm_y","accel_forearm_z","magnet_forearm_x","magnet_forearm_y","magnet_forearm_z", "problem_id")];
+
+```
+
+## Cross validation
+
+For validation, 5 k-fold train and test sets are used. this is for optimisation of the algorithm. 
+
+```{r kfold, message=FALSE,warning=FALSE, cache=TRUE,echo=TRUE}
+set.seed(77);
+folds_train <- createFolds(y=pmlData$classe,k=5, list=TRUE,returnTrain=TRUE);
+folds_test <- createFolds(y=pmlData$classe,k=5, list=TRUE,returnTrain=FALSE);
+```
+
+The results are stored in five train and tests dataset (ie "train1" and "test1") for cross validation.
+
+```{r traintest, message=FALSE,warning=FALSE, cache=TRUE,echo=FALSE}
+train1<-pmlData[folds_train[[1]],];
+test1<-pmlData[folds_test[[1]],];
+
+train2<-pmlData[folds_train[[2]],];
+test2<-pmlData[folds_test[[2]],];
+
+train3<-pmlData[folds_train[[3]],];
+test3<-pmlData[folds_test[[3]],];
+
+train4<-pmlData[folds_train[[4]],];
+test4<-pmlData[folds_test[[4]],];
+
+train5<-pmlData[folds_train[[5]],];
+test5<-pmlData[folds_test[[5]],];
+```
+
+## Machine learning with Boosting
+
+For machine learning, Boosting algorithm is used. This was done with tuning option, with no resampling.
+
+```{r ttrainoptions, message=FALSE,warning=FALSE, cache=TRUE, echo=TRUE}
+fitControl    <- trainControl(method = "none");
+tgrid <- expand.grid(n.trees=10, interaction.depth=5, shrinkage=0.1, n.minobsinnode=5);
+```
+
+Then we fit this model :
+
+```{r model, message=FALSE,warning=FALSE, cache=TRUE, echo=TRUE}
+model1  <- train(classe ~ ., data = train1, method = "gbm", trControl = fitControl, tuneGrid = tgrid);
+confusionMatrix(test1$classe,predict(model1,test1));
+```
+
+For this first model, accuracy is 85 %, and calculation time is less than 10 seconds.
+We can start the optimisations on this model.
+
+Finally, we choose one that is 99% accuracy in about 20 second of calculation :
+
+```{r model4, message=FALSE,warning=FALSE, cache=TRUE, echo=TRUE}
+tgrid <- expand.grid(n.trees=25, interaction.depth=5, shrinkage=0.6, n.minobsinnode=5);
+model4  <- train(classe ~ ., data = train4, method = "gbm", trControl = fitControl, tuneGrid = tgrid);
+confusionMatrix(test4$classe,predict(model4,test4));
+```
+
+
